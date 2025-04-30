@@ -79,7 +79,7 @@ func (pw *Visualizer) run(s screen.Screen) {
 		}
 	}()
 
-	var t screen.Texture
+	var currentTexture screen.Texture
 
 	for {
 		select {
@@ -87,10 +87,11 @@ func (pw *Visualizer) run(s screen.Screen) {
 			if !ok {
 				return
 			}
-			pw.handleEvent(e, t)
+			pw.handleEvent(e, currentTexture)
 
-		case t = <-pw.tx:
-			w.Send(paint.Event{})
+		case t := <-pw.tx:
+			currentTexture = t
+			pw.w.Send(paint.Event{})
 		}
 	}
 }
@@ -128,11 +129,9 @@ func (pw *Visualizer) handleEvent(e any, t screen.Texture) {
 		}
 
 	case paint.Event:
-		// Малювання контенту вікна.
 		if t == nil {
 			pw.drawDefaultUI()
 		} else {
-			// Використання текстури отриманої через виклик Update.
 			pw.w.Scale(pw.sz.Bounds(), t, t.Bounds(), draw.Src, nil)
 		}
 		pw.w.Publish()
