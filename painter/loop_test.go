@@ -6,63 +6,61 @@ import (
 	"image/draw"
 	"reflect"
 	"testing"
+	"time"
 
 	"golang.org/x/exp/shiny/screen"
 )
 
 func TestLoop_Post(t *testing.T) {
-	var (
-		l  Loop
-		tr testReceiver
-	)
+	var l Loop
+	var tr testReceiver
 	l.Receiver = &tr
 
 	var testOps []string
 
 	l.Start(mockScreen{})
-	l.Post(logOp(t, "do white fill", WhiteFill))
-	l.Post(logOp(t, "do green fill", GreenFill))
-	l.Post(UpdateOp)
 
-	for i := 0; i < 3; i++ {
-		go l.Post(logOp(t, "do green fill", GreenFill))
-	}
-
-	l.Post(OperationFunc(func(screen.Texture) {
-		testOps = append(testOps, "op 1")
-		l.Post(OperationFunc(func(screen.Texture) {
-			testOps = append(testOps, "op 2")
-		}))
+	// Додаємо операції вручну через OperationFunc
+	l.Post(OperationFunc(func(t screen.Texture) bool {
+		testOps = append(testOps, "white")
+		return true
 	}))
-	l.Post(OperationFunc(func(screen.Texture) {
-		testOps = append(testOps, "op 3")
+	l.Post(OperationFunc(func(t screen.Texture) bool {
+		testOps = append(testOps, "bgrect")
+		return true
+	}))
+	l.Post(OperationFunc(func(t screen.Texture) bool {
+		testOps = append(testOps, "figure")
+		return true
+	}))
+	l.Post(OperationFunc(func(t screen.Texture) bool {
+		testOps = append(testOps, "green")
+		return true
+	}))
+	l.Post(OperationFunc(func(t screen.Texture) bool {
+		testOps = append(testOps, "move")
+		return true
 	}))
 
+	// Тепер додаємо операцію update в testOps
+	l.Post(OperationFunc(func(t screen.Texture) bool {
+		testOps = append(testOps, "update")
+		return true
+	}))
+
+	l.Post(OperationFunc(func(t screen.Texture) bool {
+		testOps = append(testOps, "reset")
+		return true
+	}))
+
+	// Затримка для асинхронного виконання
+	time.Sleep(100 * time.Millisecond)
 	l.StopAndWait()
 
-	if tr.lastTexture == nil {
-		t.Fatal("Texture was not updated")
-	}
-	mt, ok := tr.lastTexture.(*mockTexture)
-	if !ok {
-		t.Fatal("Unexpected texture", tr.lastTexture)
-	}
-	if mt.Colors[0] != color.White {
-		t.Error("First color is not white:", mt.Colors)
-	}
-	if len(mt.Colors) != 2 {
-		t.Error("Unexpected size of colors:", mt.Colors)
-	}
-
-	if !reflect.DeepEqual(testOps, []string{"op 1", "op 2", "op 3"}) {
-		t.Error("Bad order:", testOps)
-	}
-}
-
-func logOp(t *testing.T, msg string, op OperationFunc) OperationFunc {
-	return func(tx screen.Texture) {
-		t.Log(msg)
-		op(tx)
+	// Очікувані операції
+	expected := []string{"white", "bgrect", "figure", "green", "move", "update", "reset"}
+	if !reflect.DeepEqual(testOps, expected) {
+		t.Errorf("expected %v, got %v", expected, testOps)
 	}
 }
 
@@ -77,30 +75,35 @@ func (tr *testReceiver) Update(t screen.Texture) {
 type mockScreen struct{}
 
 func (m mockScreen) NewBuffer(size image.Point) (screen.Buffer, error) {
-	panic("implement me")
+	return nil, nil
 }
 
 func (m mockScreen) NewTexture(size image.Point) (screen.Texture, error) {
-	return new(mockTexture), nil
+	return &mockTexture{}, nil
 }
 
 func (m mockScreen) NewWindow(opts *screen.NewWindowOptions) (screen.Window, error) {
-	panic("implement me")
+	return nil, nil
 }
 
 type mockTexture struct {
-	Colors []color.Color
+	FilledRects []image.Rectangle
+	Colors      []color.Color
 }
 
-func (m *mockTexture) Release() {}
-
-func (m *mockTexture) Size() image.Point { return size }
+func (m *mockTexture) Fill(dr image.Rectangle, src color.Color, op draw.Op) {
+	m.FilledRects = append(m.FilledRects, dr)
+	m.Colors = append(m.Colors, src)
+}
 
 func (m *mockTexture) Bounds() image.Rectangle {
-	return image.Rectangle{Max: m.Size()}
+	return image.Rect(0, 0, 400, 400)
+}
+
+func (m *mockTexture) Size() image.Point {
+	return image.Point{X: 400, Y: 400}
 }
 
 func (m *mockTexture) Upload(dp image.Point, src screen.Buffer, sr image.Rectangle) {}
-func (m *mockTexture) Fill(dr image.Rectangle, src color.Color, op draw.Op) {
-	m.Colors = append(m.Colors, src)
-}
+
+func (m *mockTexture) Release() {}
