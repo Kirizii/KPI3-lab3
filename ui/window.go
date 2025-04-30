@@ -32,8 +32,8 @@ type Visualizer struct {
 func (pw *Visualizer) Main() {
 	pw.tx = make(chan screen.Texture)
 	pw.done = make(chan struct{})
-	pw.pos.Max.X = 200
-	pw.pos.Max.Y = 200
+	pw.pos.Max.X = 800
+	pw.pos.Max.Y = 800
 	driver.Main(pw.run)
 }
 
