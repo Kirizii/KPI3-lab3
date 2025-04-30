@@ -27,13 +27,16 @@ type Visualizer struct {
 
 	sz  size.Event
 	pos image.Rectangle
+
+	figureCenter image.Point
 }
 
 func (pw *Visualizer) Main() {
 	pw.tx = make(chan screen.Texture)
 	pw.done = make(chan struct{})
-	pw.pos.Max.X = 800
-	pw.pos.Max.Y = 800
+	pw.pos.Max.X = 200
+	pw.pos.Max.Y = 200
+	pw.figureCenter = image.Point{X: 400, Y: 400}
 	driver.Main(pw.run)
 }
 
@@ -43,7 +46,9 @@ func (pw *Visualizer) Update(t screen.Texture) {
 
 func (pw *Visualizer) run(s screen.Screen) {
 	w, err := s.NewWindow(&screen.NewWindowOptions{
-		Title: pw.Title,
+		Title:  pw.Title,
+		Width:  800,
+		Height: 800,
 	})
 	if err != nil {
 		log.Fatal("Failed to initialize the app window:", err)
@@ -114,8 +119,12 @@ func (pw *Visualizer) handleEvent(e any, t screen.Texture) {
 		log.Printf("ERROR: %s", e)
 
 	case mouse.Event:
-		if t == nil {
-			// TODO: Реалізувати реакцію на натискання кнопки миші.
+		if e.Button == mouse.ButtonLeft {
+			pw.figureCenter = image.Point{
+				X: int(e.X),
+				Y: int(e.Y),
+			}
+			pw.w.Send(paint.Event{})
 		}
 
 	case paint.Event:
@@ -131,11 +140,35 @@ func (pw *Visualizer) handleEvent(e any, t screen.Texture) {
 }
 
 func (pw *Visualizer) drawDefaultUI() {
-	pw.w.Fill(pw.sz.Bounds(), color.Black, draw.Src) // Фон.
+	pw.w.Fill(pw.sz.Bounds(), color.White, draw.Src)
 
-	// TODO: Змінити колір фону та додати відображення фігури у вашому варіанті.
+	centerX := pw.figureCenter.X
+	centerY := pw.figureCenter.Y
 
-	// Малювання білої рамки.
+	stemWidth := 150
+	stemHeight := 50
+
+	headWidth := 50
+	headHeight := 200
+
+	yellow := color.RGBA{R: 0xFF, G: 0xFF, A: 0xFF}
+
+	stemRect := image.Rect(
+		centerX-stemWidth/2,
+		centerY-stemHeight/2,
+		centerX+stemWidth/2,
+		centerY+stemHeight/2,
+	)
+	pw.w.Fill(stemRect, yellow, draw.Src)
+
+	headRect := image.Rect(
+		centerX+stemWidth/2-headWidth/2,
+		centerY-headHeight/2,
+		centerX+stemWidth/2+headWidth/2,
+		centerY+headHeight/2,
+	)
+	pw.w.Fill(headRect, yellow, draw.Src)
+
 	for _, br := range imageutil.Border(pw.sz.Bounds(), 10) {
 		pw.w.Fill(br, color.White, draw.Src)
 	}
